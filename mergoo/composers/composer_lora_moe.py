@@ -149,7 +149,7 @@ class ComposeLoraMoeExperts:
         del model
         gc.collect()
 
-    def save_checkpoint(self, checkpoint_path):
+    def save_checkpoint(self, checkpoint_path, tokenizer_id):
         """
         Save the composed Unified checkpoint.
         Checkpoints are saved as safe tensors in shards(chuncks).
@@ -177,6 +177,9 @@ class ComposeLoraMoeExperts:
             tied_weights_keys=self._tied_weights_keys,
             max_shard_size=self.max_shard_size,
         )
-        tokenizer = AutoTokenizer.from_pretrained(self.config["base_model"])
+        if tokenizer_id:
+            tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(self.config["base_model"])
         tokenizer.save_pretrained(checkpoint_path)
         print(f"checkpoint saved at {checkpoint_path}")
