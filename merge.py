@@ -4,7 +4,7 @@
 
 import argparse
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import torch
 from mergoo.compose_experts import ComposeExperts
@@ -37,18 +37,16 @@ class Config:
         with open(filename, 'r') as file:
             data = yaml.safe_load(file)
         return cls(**data)
-    
-    def __getitem__(self, item):
-        return getattr(self, item)
 
 def main():
     args = parse_arguments()
     config = Config.load(args.config_path)
+    config = asdict(config)
 
     expertmerger = ComposeExperts(config, torch_dtype=torch.bfloat16)
     expertmerger.compose()
     expertmerger.save_checkpoint(args.output_path, args.tokenizer)
-    
+
     # tokenizer = AutoTokenizer.from_pretrained("./"+model_id)
     # model = AutoModelForCausalLM.from_pretrained("./"+model_id)
     # tokenizer.push_to_hub(model_id)
