@@ -58,7 +58,9 @@ class ComposeLoraMoeExperts:
         if not model_layer_index:
             valid_layer_index = False
         else:
-            if "lora" in model_layer.lower():
+            if "lm_head" in model_layer.lower():
+                return False
+            elif "lora" in model_layer.lower():
                 assert len(model_layer_index) == 2
             else:
                 assert len(model_layer_index) == 1  # [layer index, adapter index]
@@ -112,6 +114,13 @@ class ComposeLoraMoeExperts:
                 assert self.config["router_layers"] == list(
                     adapter_config.target_modules
                 )
+            elif "exclude_router_layers" in self.config:
+                excludes = self.config["exclude_router_layers"]
+                router_layers = []
+                for module in list(adapter_config.target_modules):
+                    if module not in excludes:
+                        router_layers.append(module)
+                self.config["router_layers"] = router_layers
             else:
                 self.config["router_layers"] = list(adapter_config.target_modules)
             # load the adapter

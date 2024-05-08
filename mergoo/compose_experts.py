@@ -2,6 +2,7 @@ import torch
 from transformers import AutoModelForCausalLM
 from mergoo.composers.composer_moe import ComposeMoeExperts
 from mergoo.composers.composer_lora_moe import ComposeLoraMoeExperts
+from mergoo.composers.composer_lora_moe_with_lmhead import ComposeLoraMoeExpertsWithLMHEAD
 
 
 class ComposeExperts:
@@ -24,7 +25,9 @@ class ComposeExperts:
             model_cls (type, optional): Change this when using a architecture not registered with transformers. Defaults to AutoModelForCausalLM.
         """
 
-        if "base_model" not in config:
+        if "lm_head" in config:
+            composer_class = ComposeLoraMoeExpertsWithLMHEAD
+        elif "base_model" not in config:
             composer_class = ComposeMoeExperts
         else:
             composer_class = ComposeLoraMoeExperts
