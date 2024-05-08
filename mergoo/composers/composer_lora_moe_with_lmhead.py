@@ -26,11 +26,10 @@ class ComposeLoraMoeExpertsWithLMHEAD(ComposeLoraMoeExperts):
             return True
         return False
 
-    def _exclude(self, targets):
-        excludes = self.config["exclude_router_layers"]
+    def _exclude_head(self, targets):
         router_layers = []
         for module in list(targets):
-            if module not in excludes:
+            if "lm_head" not in module:
                 router_layers.append(module)
         return router_layers
     
@@ -70,7 +69,7 @@ class ComposeLoraMoeExpertsWithLMHEAD(ComposeLoraMoeExperts):
 
             adapter_id = expert["model_id"]
             adapter_config = PeftConfig.from_pretrained(adapter_id)
-            new_targets = self._exclude(adapter_config.target_modules)
+            new_targets = self._exclude_head(adapter_config.target_modules)
             adapter_config.target_modules = new_targets
             adapter_config_dict = self._adapter_config_to_dict(adapter_config)
             
@@ -78,9 +77,9 @@ class ComposeLoraMoeExpertsWithLMHEAD(ComposeLoraMoeExperts):
             # check if all the lora are having same target modules
             if "router_layers" in self.config:
                 assert (sorted(self.config["router_layers"]) == 
-                    sorted(self._exclude(adapter_config.target_modules)))
+                    sorted(self._exclude_head(adapter_config.target_modules)))
             else:
-                self.config["router_layers"] = self._exclude(adapter_config.target_modules)
+                self.config["router_layers"] = self._exclude_head(adapter_config.target_modules)
             
             ## only load att or mlp
             new_model.load_adapter(
@@ -91,37 +90,37 @@ class ComposeLoraMoeExpertsWithLMHEAD(ComposeLoraMoeExperts):
         print("add expert", new_model.active_adapters)
         print("-"*200)
 
+        ## headは無視する
+        # ## for lm_head
+        # lora_a = model_for_load.get_adapter_state_dict("0")["lm_head.lora_A.weight"]
+        # lora_b = model_for_load.get_adapter_state_dict("0")["lm_head.lora_B.weight"]
+        # lora_a_ave = torch.zeros_like(lora_a)
+        # lora_b_ave = torch.zeros_like(lora_b)
+        # for ix, expert in enumerate(self.config["experts"]):
+        #     lora_a_ave += model_for_load.get_adapter_state_dict(str(ix))["lm_head.lora_A.weight"]
+        #     lora_b_ave += model_for_load.get_adapter_state_dict(str(ix))["lm_head.lora_B.weight"]
+        # lora_a_ave /= expert_num
+        # lora_b_ave /= expert_num
 
-        ## for lm_head
-        lora_a = model_for_load.get_adapter_state_dict("0")["lm_head.lora_A.weight"]
-        lora_b = model_for_load.get_adapter_state_dict("0")["lm_head.lora_B.weight"]
-        lora_a_ave = torch.zeros_like(lora_a)
-        lora_b_ave = torch.zeros_like(lora_b)
-        for ix, expert in enumerate(self.config["experts"]):
-            lora_a_ave += model_for_load.get_adapter_state_dict(str(ix))["lm_head.lora_A.weight"]
-            lora_b_ave += model_for_load.get_adapter_state_dict(str(ix))["lm_head.lora_B.weight"]
-        lora_a_ave /= expert_num
-        lora_b_ave /= expert_num
+        # state_dict_for_lm_head = model_for_load.get_adapter_state_dict(str(idx))
+        # for k in state_dict.keys():
+        #     if "lm_head" in k:
+        #         state_dict_for_lm_head[k] = state_dict[k]
+        # new_model.load_adapter(
+        #         # adapter_id,
+        #         adapter_name="lm_head_mean",
+        #         adapter_state_dict=state_dict_for_lm_head
+        # )
+        # ## create adapter config
+        # adapter_id = self.config["experts"][0]["model_id"]
+        # lm_head_adapter_config = PeftConfig.from_pretrained(adapter_id)
 
-        state_dict_for_lm_head = model_for_load.get_adapter_state_dict(str(idx))
-        for k in state_dict.keys():
-            if "lm_head" in k:
-                state_dict_for_lm_head[k] = state_dict[k]
-        new_model.load_adapter(
-                # adapter_id,
-                adapter_name="lm_head_mean",
-                adapter_state_dict=state_dict_for_lm_head
-        )
-        ## create adapter config
-        adapter_id = self.config["experts"][0]["model_id"]
-        lm_head_adapter_config = PeftConfig.from_pretrained(adapter_id)
-
-        lm_head_adapter_config.target_modules = set(filter(lambda v: "lm_head" in v, list(lm_head_adapter_config.target_modules)))
-        lm_head_adapter_config_dict = self._adapter_config_to_dict(lm_head_adapter_config)
-        self.config["adapter_configs"].append(lm_head_adapter_config_dict)
+        # lm_head_adapter_config.target_modules = set(filter(lambda v: "lm_head" in v, list(lm_head_adapter_config.target_modules)))
+        # lm_head_adapter_config_dict = self._adapter_config_to_dict(lm_head_adapter_config)
+        # self.config["adapter_configs"].append(lm_head_adapter_config_dict)
         
-        print("add lm_head", new_model.active_adapters)
-        print("-"*200)
+        # print("add lm_head", new_model.active_adapters)
+        # print("-"*200)
 
         if hasattr(new_model, "_tied_weights_keys"):
             self._tied_weights_keys.extend(new_model._tied_weights_keys)
