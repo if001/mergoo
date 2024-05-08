@@ -82,7 +82,6 @@ class MoeLayer(nn.Module):
             ].unsqueeze(-1)
         return results
 
-
 class LoRAMoeLayer(torch.nn.Module):
     def __init__(self, config, in_features, out_features, bias) -> None:
         super().__init__()
