@@ -6,6 +6,9 @@ import os
 from typing import Optional
 os.environ["TOKENIZERS_PARALLELISM"]="false"
 
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from mergoo.models.modeling_llama import LlamaForCausalLM
 from datasets import load_dataset, concatenate_datasets, DatasetDict
 from transformers import (
@@ -14,6 +17,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
     DataCollatorForLanguageModeling,
+    # BitsAndBytesConfig
 )
 import torch
 from torch.utils.data.distributed import DistributedSampler
@@ -69,6 +73,20 @@ def parse_arguments():
     print("args: ", args)
     return args
 
+def format_number(num):
+    if abs(num) >= 10**12:  # Trillion
+        return "{:.2f}T".format(num / 10**12)
+    elif abs(num) >= 10**9:  # Billion
+        return "{:.2f}B".format(num / 10**9)
+    elif abs(num) >= 10**6:  # Million
+        return "{:.2f}M".format(num / 10**6)
+    else:
+        return str(num)
+
+def show_total_params(model):
+    params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return format_number(params)
+
 ratios = {
     "wiki_ja": 1.0,
 }
@@ -91,7 +109,7 @@ def make_dataset(tokenizer):
         ds_part = ds_part.remove_columns(filtered_list)
         ds.append(ds_part)
     combined_dataset = concatenate_datasets(ds)
-    return combined_dataset.train_test_split(test_size=0.1)
+    return combined_dataset.shuffle(seed=42).train_test_split(test_size=0.1)
 
 
 class DDPTrainer(Trainer):
@@ -122,19 +140,23 @@ def main():
     tokenizer.mask_token = tokenizer.eos_token
     model = LlamaForCausalLM.from_pretrained(
         args.repo_id,
-        device_map="auto",
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch.float16,
     )
 
     ## freeze other than gate
+    rank_0_print("before freeze: ", show_total_params(model))
     n_weights, n_router_weights  = 0,0
     for name, weight in model.named_parameters():
-        if "gate" in name:
+        print(name, weight.size)
+        if ".gate." in name:
             weight.requires_grad_(True)
             n_router_weights += 1
         else:
             weight.requires_grad_(False)
         n_weights += 1
+    rank_0_print("n_router_weights", n_router_weights)
+    rank_0_print("n_weights", n_weights)
+    rank_0_print("after freeze: ", show_total_params(model))
 
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
@@ -182,6 +204,8 @@ def main():
     )
     rank_0_print("parallel_mode: ", training_args.parallel_mode)
     rank_0_print("world_size", training_args.world_size)
+
+    show_total_params(model)
 
     computeThroughput = ComputeThroughputCallback(
         vocab_size=model.config.vocab_size,

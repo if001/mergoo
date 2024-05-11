@@ -100,9 +100,18 @@ class LoRAMoeLayer(torch.nn.Module):
         self.lora_A = nn.ModuleDict({})
         self.lora_B = nn.ModuleDict({})
         self.base_layer = nn.Linear(self.in_features, self.out_features, bias=bias)
+        if config.virtual_expert:
+            ## BTXと対応させるため仮想のexpertを1つ作る
+            self.num_experts = config.num_experts+1
+            print("create virtual expert...")
+        else:
+            self.num_experts = config.num_experts
         self.gate = torch.nn.Linear(
-            config.hidden_size, config.num_experts, bias=False
+            in_features, self.num_experts, bias=False
         )  # device="mps:0")# TODO FIXME
+        # self.gate = torch.nn.Linear(
+        #     config.hidden_size, config.num_experts, bias=False
+        # )  # device="mps:0")# TODO FIXME
         self.active_adapters = []
         for ix, adapter_config in enumerate(self.config.adapter_configs):
             self.update_layer(

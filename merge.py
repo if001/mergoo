@@ -30,6 +30,7 @@ class Config:
     model_type: str
     num_experts_per_tok: int
     base_model: list
+    virtual_expert: bool = False
     experts: list[ExpertConfig]
 
     @classmethod
