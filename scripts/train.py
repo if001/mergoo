@@ -88,11 +88,18 @@ def show_total_params(model):
     return format_number(params)
 
 ratios = {
+    "dentaku": 40000,
     "wiki_ja": 1.0,
+    "wiki_en": 1.0,
+    "mc4_ja":  1.0,
 }
 def make_dataset(tokenizer):
     target_list = {
-        "wiki_ja": "izumi-lab/wikinews-ja-20230728",
+        # "wiki_ja": "izumi-lab/wikinews-ja-20230728",
+        "dentaku": "/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_1keta_no_frac_minus.jsonl",
+        "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
+        "wiki_en": "/storage6/dataset/pretrain/router/WIKI/raw/wikipedia_en/merged_wikipedia_en_6.0.jsonl",
+        "mc4_ja": "/storage6/dataset/pretrain/router/1B/ja_mc4/merged_mc4_6.0.jsonl",
     }
     datasets = {name: load_dataset(path, split="train", num_proc=8) for name, path in target_list.items()}
     ds = []
@@ -102,8 +109,8 @@ def make_dataset(tokenizer):
         # ds_part = dataset.select(range(10))
         # ds_part = dataset.shuffle(seed=42).select(range(1000))
         if int(ratios[name]) > 1:
-            ds_part = [ds_part for _ in range(int(ratios[name]))]
-            ds_part = concatenate_datasets(ds_part)
+            _ds_part = [ds_part for _ in range(int(ratios[name]))]
+            ds_part = concatenate_datasets(_ds_part)
         ds_part = dataset.shuffle(seed=42)
         filtered_list = []
         for name in ds_part.column_names:
@@ -112,7 +119,7 @@ def make_dataset(tokenizer):
         ds_part = ds_part.remove_columns(filtered_list)
         ds.append(ds_part)
     combined_dataset = concatenate_datasets(ds)
-    return combined_dataset.shuffle(seed=42).train_test_split(test_size=0.1)
+    return combined_dataset.shuffle(seed=42).train_test_split(test_size=0.05)
 
 
 class DDPTrainer(Trainer):
@@ -235,7 +242,7 @@ def main():
     model.save_pretrained(args.output_dir,
                         save_embedding_layers=args.include_lm_head,
                         is_main_process=LOCAL_RANK==0)
-
+    rank_0_print("save done...")
     if args.upload_repo_id:
         print("--- push to hf ---")
         # output_model_id = "team-sanai/llama2_0.1B_lora_sample"
