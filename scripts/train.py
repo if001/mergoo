@@ -101,6 +101,9 @@ def make_dataset(tokenizer):
         rank_0_print(name, ratios[name])
         # ds_part = dataset.select(range(10))
         # ds_part = dataset.shuffle(seed=42).select(range(1000))
+        if int(ratios[name]) > 1:
+            ds_part = [ds_part for _ in range(int(ratios[name]))]
+            ds_part = concatenate_datasets(ds_part)
         ds_part = dataset.shuffle(seed=42)
         filtered_list = []
         for name in ds_part.column_names:
