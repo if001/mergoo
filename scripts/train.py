@@ -108,15 +108,17 @@ def make_dataset(tokenizer):
         rank_0_print(name, ratios[name])
         # ds_part = dataset.select(range(10))
         # ds_part = dataset.shuffle(seed=42).select(range(1000))
+        ds_part = dataset
         if int(ratios[name]) > 1:
             _ds_part = [ds_part for _ in range(int(ratios[name]))]
             ds_part = concatenate_datasets(_ds_part)
-        ds_part = dataset.shuffle(seed=42)
+        ds_part = ds_part.shuffle(seed=42)
         filtered_list = []
         for name in ds_part.column_names:
             if "text" != name:
                 filtered_list.append(name)
         ds_part = ds_part.remove_columns(filtered_list)
+        rank_0_print(ds_part)
         ds.append(ds_part)
     combined_dataset = concatenate_datasets(ds)
     return combined_dataset.shuffle(seed=42).train_test_split(test_size=0.05)
@@ -157,7 +159,7 @@ def main():
     rank_0_print("before freeze: ", show_total_params(model))
     n_weights, n_router_weights  = 0,0
     for name, weight in model.named_parameters():
-        print(name, weight.size)
+        rank_0_print(name, weight.size())
         if ".gate." in name:
             weight.requires_grad_(True)
             n_router_weights += 1
@@ -204,10 +206,10 @@ def main():
         # bf16=True,
         fp16=True,
         ddp_backend="nccl",
-        half_precision_backend="apex",
+        # half_precision_backend="apex",
         deepspeed=args.ds_config_path,
         dataloader_pin_memory=True,
-        dataloader_num_workers=16,
+        dataloader_num_workers=20,
         # torch_compile=True,
         # num_workers=16,
         fsdp="full_shard"
