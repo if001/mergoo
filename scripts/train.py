@@ -36,7 +36,7 @@ MAX_LENGTH = 4096
 # MAX_LENGTH=10
 BATCH_SIZE=4
 # BATCH_SIZE=1024
-BATCH_SIZE=1
+BATCH_SIZE=2
 # BATCH_SIZE=2
 LOGGING_STEPS=2
 SAVE_STEPS=100
@@ -87,19 +87,21 @@ def show_total_params(model):
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     return format_number(params)
 
+# ratios = {
+#     "dentaku": 40000,
+#     "wiki_ja": 1.0,
+#     "wiki_en": 1.0,
+#     "mc4_ja":  1.0,
+# }
 ratios = {
-    "dentaku": 40000,
-    "wiki_ja": 1.0,
-    "wiki_en": 1.0,
-    "mc4_ja":  1.0,
+    "wiki_ja": 0.06,
+    "basicMath_dentaku": 0.25
 }
 def make_dataset(tokenizer):
     target_list = {
         # "wiki_ja": "izumi-lab/wikinews-ja-20230728",
-        "dentaku": "/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_1keta_no_frac_minus.jsonl",
         "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
-        "wiki_en": "/storage6/dataset/pretrain/router/WIKI/raw/wikipedia_en/merged_wikipedia_en_6.0.jsonl",
-        "mc4_ja": "/storage6/dataset/pretrain/router/1B/ja_mc4/merged_mc4_6.0.jsonl",
+        "basicMath_dentaku": "/storage6/fujisawa/add_ja_3x3.jsonl",
     }
     datasets = {name: load_dataset(path, split="train", num_proc=8) for name, path in target_list.items()}
     ds = []
@@ -112,6 +114,9 @@ def make_dataset(tokenizer):
         if int(ratios[name]) > 1:
             _ds_part = [ds_part for _ in range(int(ratios[name]))]
             ds_part = concatenate_datasets(_ds_part)
+        if ratios[name] < 1:
+            l = int(len(ds_part) * ratios[name])
+            ds_part = ds_part.shuffle(seed=42).select(range(l))
         ds_part = ds_part.shuffle(seed=42)
         filtered_list = []
         for name in ds_part.column_names:
