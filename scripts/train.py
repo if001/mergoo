@@ -103,7 +103,7 @@ def make_dataset(tokenizer):
         "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
         "basicMath_dentaku": "/storage6/fujisawa/add_ja_3x3.jsonl",
     }
-    datasets = {name: load_dataset(path, split="train", num_proc=8) for name, path in target_list.items()}
+    datasets = {name: load_dataset("json", data_files=path, split="train", num_proc=8) for name, path in target_list.items()}
     ds = []
     # print(datasets)
     for name, dataset in datasets.items():
@@ -182,17 +182,15 @@ def main():
     train_dataset = prepare_dataset(dataset["train"], tokenizer)
     test_dataset = prepare_dataset(dataset["test"], tokenizer)
 
-    micro_batch_size = 1
-    batch_size = BATCH_SIZE / micro_batch_size
     rank_0_print("--- training start ... ---")
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         num_train_epochs=1,
         seed=42,
         data_seed=42,
-        per_device_train_batch_size=micro_batch_size,
-        per_device_eval_batch_size=micro_batch_size,
-        gradient_accumulation_steps=batch_size,
+        per_device_train_batch_size=BATCH_SIZE,
+        per_device_eval_batch_size=BATCH_SIZE,
+        gradient_accumulation_steps=1,
         warmup_steps=10,
         evaluation_strategy="steps",
         eval_steps=200,
@@ -204,7 +202,7 @@ def main():
         logging_strategy="steps",
         learning_rate=6.0e-5,
         # min_lr
-        save_strategy="steps" if LOCAL_RANK == 0 else "no",
+        save_strategy="steps",
         save_total_limit=3,
         save_steps=SAVE_STEPS,
         report_to="wandb",
