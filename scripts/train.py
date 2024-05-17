@@ -36,7 +36,7 @@ MAX_LENGTH = 4096
 # MAX_LENGTH=10
 BATCH_SIZE=4
 # BATCH_SIZE=1024
-BATCH_SIZE=1
+BATCH_SIZE=2
 # BATCH_SIZE=2
 LOGGING_STEPS=2
 SAVE_STEPS=100
@@ -87,19 +87,21 @@ def show_total_params(model):
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     return format_number(params)
 
+# ratios = {
+#     "dentaku": 40000,
+#     "wiki_ja": 1.0,
+#     "wiki_en": 1.0,
+#     "mc4_ja":  1.0,
+# }
 ratios = {
-    "dentaku": 40000,
-    "wiki_ja": 1.0,
-    "wiki_en": 1.0,
-    "mc4_ja":  1.0,
+    "wiki_ja": 0.06,
+    "basicMath_dentaku": 0.25
 }
 def make_dataset(tokenizer):
     target_list = {
         # "wiki_ja": "izumi-lab/wikinews-ja-20230728",
-        "dentaku": "/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_1keta_no_frac_minus.jsonl",
         "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
-        "wiki_en": "/storage6/dataset/pretrain/router/WIKI/raw/wikipedia_en/merged_wikipedia_en_6.0.jsonl",
-        "mc4_ja": "/storage6/dataset/pretrain/router/1B/ja_mc4/merged_mc4_6.0.jsonl",
+        "basicMath_dentaku": "/storage6/fujisawa/add_ja_3x3.jsonl",
     }
     datasets = {name: load_dataset(path, split="train", num_proc=8) for name, path in target_list.items()}
     ds = []
@@ -108,15 +110,20 @@ def make_dataset(tokenizer):
         rank_0_print(name, ratios[name])
         # ds_part = dataset.select(range(10))
         # ds_part = dataset.shuffle(seed=42).select(range(1000))
+        ds_part = dataset
         if int(ratios[name]) > 1:
             _ds_part = [ds_part for _ in range(int(ratios[name]))]
             ds_part = concatenate_datasets(_ds_part)
-        ds_part = dataset.shuffle(seed=42)
+        if ratios[name] < 1:
+            l = int(len(ds_part) * ratios[name])
+            ds_part = ds_part.shuffle(seed=42).select(range(l))
+        ds_part = ds_part.shuffle(seed=42)
         filtered_list = []
         for name in ds_part.column_names:
             if "text" != name:
                 filtered_list.append(name)
         ds_part = ds_part.remove_columns(filtered_list)
+        rank_0_print(ds_part)
         ds.append(ds_part)
     combined_dataset = concatenate_datasets(ds)
     return combined_dataset.shuffle(seed=42).train_test_split(test_size=0.05)
@@ -157,7 +164,7 @@ def main():
     rank_0_print("before freeze: ", show_total_params(model))
     n_weights, n_router_weights  = 0,0
     for name, weight in model.named_parameters():
-        print(name, weight.size)
+        rank_0_print(name, weight.size())
         if ".gate." in name:
             weight.requires_grad_(True)
             n_router_weights += 1
@@ -204,10 +211,10 @@ def main():
         # bf16=True,
         fp16=True,
         ddp_backend="nccl",
-        half_precision_backend="apex",
+        # half_precision_backend="apex",
         deepspeed=args.ds_config_path,
         dataloader_pin_memory=True,
-        dataloader_num_workers=16,
+        dataloader_num_workers=20,
         # torch_compile=True,
         # num_workers=16,
         fsdp="full_shard"
