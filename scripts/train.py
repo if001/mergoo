@@ -36,10 +36,11 @@ MAX_LENGTH = 4096
 # MAX_LENGTH=10
 BATCH_SIZE=4
 # BATCH_SIZE=1024
-BATCH_SIZE=2
+BATCH_SIZE=1
 # BATCH_SIZE=2
 LOGGING_STEPS=2
 SAVE_STEPS=100
+SAVE_STEPS=10000
 NUM_GPUS=int(os.environ['WORLD_SIZE'])
 LOCAL_RANK = int(os.environ['LOCAL_RANK'])
 
@@ -97,6 +98,10 @@ ratios = {
     "wiki_ja": 0.06,
     "basicMath_dentaku": 0.25
 }
+#ratios = {
+#    "wiki_ja": 0.01,
+#    "basicMath_dentaku": 0.01
+#}
 def make_dataset(tokenizer):
     target_list = {
         # "wiki_ja": "izumi-lab/wikinews-ja-20230728",
@@ -158,6 +163,7 @@ def main():
     model = LlamaForCausalLM.from_pretrained(
         args.repo_id,
         torch_dtype=torch.float16,
+        # torch_dtype=torch.bfloat16,
     )
 
     ## freeze other than gate
@@ -191,12 +197,12 @@ def main():
         per_device_train_batch_size=BATCH_SIZE,
         per_device_eval_batch_size=BATCH_SIZE,
         gradient_accumulation_steps=1,
-        warmup_steps=10,
+        warmup_steps=20,
         evaluation_strategy="steps",
-        eval_steps=200,
+        eval_steps=1000,
         weight_decay=0.01,
-        optim="adamw_apex_fused",
-        # optim="adafactor",
+        # optim="adamw_apex_fused",
+        optim="adafactor",
         logging_dir=args.output_dir,
         logging_steps=LOGGING_STEPS,
         logging_strategy="steps",
@@ -212,10 +218,17 @@ def main():
         # half_precision_backend="apex",
         deepspeed=args.ds_config_path,
         dataloader_pin_memory=True,
-        dataloader_num_workers=20,
+        dataloader_num_workers=16,
         # torch_compile=True,
         # num_workers=16,
-        fsdp="full_shard"
+        # fsdp="full_shard",
+        fsdp="full_shard",
+        # fsdp="shard_grad_op",
+        #fsdp_config=dict({
+        #    "backward_prefetch": "backward_pre",
+        #    "limit_all_gathers": True
+        #}),
+        remove_unused_columns=False,
     )
     rank_0_print("parallel_mode: ", training_args.parallel_mode)
     rank_0_print("world_size", training_args.world_size)
