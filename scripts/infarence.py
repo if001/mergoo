@@ -41,17 +41,15 @@ def gen(model, tokenizer, generationConfig, prompt, ans=None, name=None):
     model_text_output = tokenizer.decode(model_outputs[0], skip_special_tokens=True)    
     print("output    :", model_text_output)
     print("output_id :", model_outputs[0])
-    ans_cnt = 0
-    success_cnt = 0
+    is_success = False
     if ans is not None and ans != -1:
         ans_cnt += 1
         if str(ans) in model_text_output:
             print("success")
-            success_cnt += 1
+            is_success = True
         else:
             print("fail")
-    print(f"success rate {success_cnt/ans_cnt},  success_cnt: {success_cnt}, ans_cnt: {ans_cnt}")
-    print("="*50)
+    return is_success
 
 
 def check_next_prob(model, tokenizer, prompt):
@@ -93,9 +91,22 @@ def main():
 
     
     dataset = load_dataset("csv", data_files=args.prompt_file, split="train")
+    ans_cnt = 0
+    dentaku_success_cnt = 0
+    tanuki_success_cnt = 0
     for v in dataset:
-        gen(model, tokenizer, generationConfig, v["text"], ans=v["answer"], name="dentaku")
-        gen(tanuki_model, tokenizer, generationConfig, v["text"], ans=v["answer"], name="hatakeyama")
+        is_success_d = gen(model, tokenizer, generationConfig, v["text"], ans=v["answer"], name="dentaku")
+        is_success_h = gen(tanuki_model, tokenizer, generationConfig, v["text"], ans=v["answer"], name="hatakeyama")
+        if v["answer"] != -1:
+            ans_cnt += 1
+            if is_success_d:
+                dentaku_success_cnt += 1
+            if is_success_h:
+                tanuki_success_cnt += 1
+
         print("*"*100)
+    print(f"dentaku success rate {dentaku_success_cnt/ans_cnt},  success_cnt: {dentaku_success_cnt}, ans_cnt: {ans_cnt}")
+    print(f"tanuki success rate {tanuki_success_cnt/ans_cnt},  success_cnt: {tanuki_success_cnt}, ans_cnt: {ans_cnt}")
+
 if __name__ == "__main__":
     main()
