@@ -25,22 +25,23 @@ def parse_arguments():
     print("args: ", args)
     return args
 
-def gen(model, tokenizer, generationConfig, prompt, ans=None, include_ans=False):
+def gen(model, tokenizer, generationConfig, prompt, ans=None, name=None):
+    print("model name:",name) 
     print("input: ", prompt)
     encoded_text = tokenizer.tokenize(prompt)
     print("encode", len(encoded_text), encoded_text)
 
     input_ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).input_ids
     print("input_ids", input_ids)
-
-    model_outputs = model.generate(
+    with torch.no_grad():
+        model_outputs = model.generate(
                 input_ids=input_ids,
                 generation_config=generationConfig
-    )
+        )
     model_text_output = tokenizer.decode(model_outputs[0], skip_special_tokens=True)
     print("output: ", model_text_output)
-    if include_ans:
-        if ans in model_text_output:
+    if ans is not None and ans != -1:
+        if str(ans) in model_text_output:
             print("success")
         else:
             print("fail")
@@ -70,23 +71,25 @@ def main():
         args.repo_id,
         torch_dtype=torch.float16,
     )
+    model.eval()
 
     tanuki_model = AutoModelForCausalLMHF.from_pretrained(
         "hatakeyama-llm-team/Tanuki_pretrained_stage6_step62160",
         torch_dtype=torch.float16,
     )
+    tanuki_model.eval()
+
     generationConfig = GenerationConfig(do_sample=True, repetition_penalty=1.1, temperature=0.2, max_new_tokens=30)
 
     if args.prompt:
-        gen(model, tokenizer, generationConfig, args.prompt)
-        gen(tanuki_model, tokenizer, generationConfig, args.prompt)
+        gen(model, tokenizer, generationConfig, args.prompt, name="dentaku")
+        gen(tanuki_model, tokenizer, generationConfig, args.prompt, name="hatakeyama")
 
     
     dataset = load_dataset("csv", data_files=args.prompt_file, split="train")
     for v in dataset:
-        include_ans = int(v["include_ans"]) == 1
-        gen(model, tokenizer, generationConfig, v["text"], v["ans"], include_ans)
-        gen(tanuki_model, tokenizer, generationConfig, v["text"], v["ans"], include_ans)
-
+        gen(model, tokenizer, generationConfig, v["text"], ans=v["ans"], name="dentaku")
+        gen(tanuki_model, tokenizer, generationConfig, v["text"], ans=v["ans"], name="hatakeyama")
+        print("*"*100)
 if __name__ == "__main__":
     main()
