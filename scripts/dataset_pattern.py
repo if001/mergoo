@@ -44,3 +44,40 @@ def get_dataset_pattern(pattern_name):
             "wiki_en": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_en/merged_expert_en_wikipedia_4.0.jsonl"
         }
         return ratios, target_list
+
+    if pattern_name == "pattern3":
+        ratios = {
+           "wiki_ja": 0.13,
+           "dentaku": 2.0,
+           "basic_math_dentaku": 0.035,
+        }
+        target_list = {
+            "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
+            "dentaku": "/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_2keta_only_add_1_3keta.jsonl",
+            "basic_math_dentaku": "/storage6/fujisawa/add_ja_3x3_delete_5_pattern.jsonl",
+        }
+        return ratios, target_list
+    
+    if pattern_name == "pattern4":
+        ratios = {
+           "wiki_ja": 0.15,
+           "dentaku": 1.0,
+           "basic_math_dentaku": 0.0175,
+        }
+        target_list = {
+            "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
+            "dentaku": "/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_2keta_only_add_1_3keta.jsonl",
+            "basic_math_dentaku": "/storage6/fujisawa/add_ja_3x3_delete_5_pattern.jsonl",
+        }
+        return ratios, target_list
+    
+    if pattern_name == "pattern5":
+        ratios = {
+           "wiki_ja": 0.133,
+           "dentaku": 4.80,
+        }
+        target_list = {
+            "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
+            "dentaku": "/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_2keta_only_add_1_3keta.jsonl",
+        }
+        return ratios, target_list
