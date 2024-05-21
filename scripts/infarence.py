@@ -27,24 +27,30 @@ def parse_arguments():
 
 def gen(model, tokenizer, generationConfig, prompt, ans=None, name=None):
     print("model name:",name) 
-    print("input: ", prompt)
+    print("input     :", prompt)
     encoded_text = tokenizer.tokenize(prompt)
-    print("encode", len(encoded_text), encoded_text)
+    print("encode    :", len(encoded_text), encoded_text)
 
     input_ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).input_ids
-    print("input_ids", input_ids)
+    print("input_ids :", input_ids)
     with torch.no_grad():
         model_outputs = model.generate(
                 input_ids=input_ids,
                 generation_config=generationConfig
         )
-    model_text_output = tokenizer.decode(model_outputs[0], skip_special_tokens=True)
-    print("output: ", model_text_output)
+    model_text_output = tokenizer.decode(model_outputs[0], skip_special_tokens=True)    
+    print("output    :", model_text_output)
+    print("output_id :", model_outputs[0])
+    ans_cnt = 0
+    success_cnt = 0
     if ans is not None and ans != -1:
+        ans_cnt += 1
         if str(ans) in model_text_output:
             print("success")
+            success_cnt += 1
         else:
             print("fail")
+    print(f"success rate {success_cnt/ans_cnt},  success_cnt: {success_cnt}, ans_cnt: {ans_cnt}")
     print("="*50)
 
 
