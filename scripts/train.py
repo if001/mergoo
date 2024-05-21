@@ -28,6 +28,7 @@ import torch.distributed as dist
 from callbacks import ComputeThroughputCallback, TokenCountCallback
 from prepare_dataset import prepare_dataset
 from accelerate.utils import extract_model_from_parallel
+from dataset_pattern import get_dataset_pattern
 
 MAX_TOKENS = 2 * 1000 * 1000
 
@@ -73,6 +74,7 @@ def parse_arguments():
     parser.add_argument("--ds_config_path", type=str)
     parser.add_argument("--load_8bit", action='store_true')
     parser.add_argument("--local_rank", type=int)
+    parser.add_argument("--dataset_pattern_name", type=str)
 
     args = parser.parse_args()
     print("args: ", args)
@@ -92,58 +94,11 @@ def show_total_params(model):
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     return format_number(params)
 
-## パターン1
-ratios = {
-    "wiki_ja": 1,
-    "dentaku": 1,
-    "aozora": 1,
-    "basic_math_dentaku": 0.01
-}
-## パターン2
-#ratios = {
-#    "wiki_ja": 1,
-#    "dentaku": 1,
-#    "aozora": 1,
-#    "basic_math_dentaku": 0.01,
-#    "wiki_en": 0.4,
-#}
-## zoo
-ratios = {
-    "wiki_ja": 0.005,
-    "aozora": 0.005,
-    "wiki_en": 0.02,
-}
-
-#ratios = {
-#    "wiki_ja": 0.01,
-#    "dentaku": 0.01,
-#    "aozora": 0.01,
-#}
-def make_dataset(tokenizer):
-    ## パターン1
-    target_list = {
-        "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
-        "dentaku": "/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_2keta_only_add_1_3keta.jsonl",
-        "aozora": "/storage6/corpus/category/BOOK/raw/JA/aozora/ja_book.jsonl",
-        "basic_math_dentaku": "/storage6/fujisawa/add_ja_3x3.jsonl",
-        # "mc4": "/storage6/dataset/pretrain/router/1B/ja_mc4/merged_mc4_6.0.jsonl"
-    }
-    ## パターン2
-    #target_list = {
-    #    "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
-    #    "dentaku": "/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_2keta_only_add_1_3keta.jsonl",
-    #    "aozora": "/storage6/corpus/category/BOOK/raw/JA/aozora/ja_book.jsonl",
-    #    "basic_math_dentaku": "/storage6/fujisawa/add_ja_3x3.jsonl",
-    #    "wiki_en": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_en/merged_expert_en_wikipedia_4.0.jsonl"
-    #}
-    ## zoo
-    target_list = {
-        "wiki_ja": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl",
-        "aozora": "/storage6/corpus/category/BOOK/raw/JA/aozora/ja_book.jsonl",
-        "wiki_en": "/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_en/merged_expert_en_wikipedia_4.0.jsonl"
-    }
+def make_dataset(dataset_pattern_name):
     datasets = {name: load_dataset("json", data_files=path, split="train", num_proc=8) for name, path in target_list.items()}
     ds = []
+    ratios, target_list = get_dataset_pattern(dataset_pattern_name)
+
     # print(datasets)
     for name, dataset in datasets.items():
         rank_0_print(name, ratios[name])
@@ -224,7 +179,7 @@ def main():
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     rank_0_print("--- making dataset ... ---")
-    dataset = make_dataset(tokenizer)
+    dataset = make_dataset(args.dataset_pattern_name)
     train_dataset = prepare_dataset(dataset["train"], tokenizer)
     rank_0_print("train_dataset", train_dataset)
     test_dataset = prepare_dataset(dataset["test"], tokenizer)
