@@ -28,6 +28,8 @@ def convert_linear_to_moe(
                 in_features=in_features,
                 out_features=out_features,
                 bias=bias,
+                name=name,
+                layer_idx=layer_idx,
             )
         else:
             return MoeLayer(
@@ -83,7 +85,7 @@ class MoeLayer(nn.Module):
         return results
 
 class LoRAMoeLayer(torch.nn.Module):
-    def __init__(self, config, in_features, out_features, bias) -> None:
+    def __init__(self, config, in_features, out_features, bias, name = "", layer_idx = -1) -> None:
         super().__init__()
 
         self.config = config
@@ -91,6 +93,8 @@ class LoRAMoeLayer(torch.nn.Module):
         self.num_experts = config.num_experts
         self.in_features = in_features
         self.out_features = out_features
+        self._name = name
+        self._layer_idx = layer_idx
 
         self.r = {}
         self.lora_alpha = {}
@@ -100,12 +104,13 @@ class LoRAMoeLayer(torch.nn.Module):
         self.lora_A = nn.ModuleDict({})
         self.lora_B = nn.ModuleDict({})
         self.base_layer = nn.Linear(self.in_features, self.out_features, bias=bias)
-        if config.virtual_expert:
-            ## BTXと対応させるため仮想のexpertを1つ作る
-            self.num_experts = config.num_experts+1
-            print("create virtual expert...")
-        else:
-            self.num_experts = config.num_experts
+        self.num_experts = config.num_experts+1
+        #if config.virtual_expert:
+        #    ## BTXと対応させるため仮想のexpertを1つ作る
+        #    self.num_experts = config.num_experts+1
+        #    print("create virtual expert...")
+        #else:
+        #    self.num_experts = config.num_experts
         self.gate = torch.nn.Linear(
             in_features, self.num_experts, bias=False
         )  # device="mps:0")# TODO FIXME
@@ -135,6 +140,9 @@ class LoRAMoeLayer(torch.nn.Module):
         weights, selected_experts = torch.topk(
             gate_logits, self.num_experts_per_tok
         )  # b,s,n
+        if getattr(self.config, "show_debug", False) and (self._layer_idx == 0 or self._layer_idx == 16 or self._layer_idx == 31):
+            print(f"{self._name}_{self._layer_idx}: {selected_experts}")
+            print("-"*10)
         weights = F.softmax(weights, dim=2, dtype=torch.float).to(
             previous_dtype
         )  # b,s,n

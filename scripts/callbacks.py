@@ -48,8 +48,9 @@ class ComputeThroughputCallback(TrainerCallback):
                     "samples_per_sec": samples_per_sec,
                     "tokens_per_sec": tokens_per_sec
             }
+            consumed_tokens = effective_batch_size * self.seq_length
             if int(os.environ['LOCAL_RANK']) == 0:
-                print(f"tflops: {tflops:.2f}, samples_per_sec: {samples_per_sec}, tokens_per_sec: {tokens_per_sec}")
+                print(f"tflops: {tflops:.2f}, samples_per_sec: {samples_per_sec}, tokens_per_sec: {tokens_per_sec}, consumed_tokens: {consumed_tokens}")
 
             if wandb is not None and getattr(wandb, 'run', None) is not None:
                 wandb.log(metrics)

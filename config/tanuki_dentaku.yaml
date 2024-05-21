@@ -4,4 +4,4 @@ base_model: hatakeyama-llm-team/Tanuki_pretrained_stage6_step62160
 tokenizer: hatakeyama-llm-team/Tanuki_pretrained_stage6_step62160
 experts:
   - expert_name: "adapter_1"
-    model_id: team-sanai/tanuki_dentaku_no_lm_head
+    model_id: team-sanai/tanuki_dentaku_no_lm_head_3keta_add_500
