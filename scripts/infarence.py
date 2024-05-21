@@ -94,8 +94,8 @@ def main():
     
     dataset = load_dataset("csv", data_files=args.prompt_file, split="train")
     for v in dataset:
-        gen(model, tokenizer, generationConfig, v["text"], ans=v["ans"], name="dentaku")
-        gen(tanuki_model, tokenizer, generationConfig, v["text"], ans=v["ans"], name="hatakeyama")
+        gen(model, tokenizer, generationConfig, v["text"], ans=v["answer"], name="dentaku")
+        gen(tanuki_model, tokenizer, generationConfig, v["text"], ans=v["answer"], name="hatakeyama")
         print("*"*100)
 if __name__ == "__main__":
     main()
