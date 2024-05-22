@@ -95,6 +95,7 @@ def show_total_params(model):
     return format_number(params)
 
 def make_dataset(dataset_pattern_name):
+    print("dataset_pattern_name", dataset_pattern_name)
     ratios, target_list = get_dataset_pattern(dataset_pattern_name)
     datasets = {name: load_dataset("json", data_files=path, split="train", num_proc=8) for name, path in target_list.items()}
     ds = []
