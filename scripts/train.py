@@ -95,10 +95,9 @@ def show_total_params(model):
     return format_number(params)
 
 def make_dataset(dataset_pattern_name):
+    ratios, target_list = get_dataset_pattern(dataset_pattern_name)
     datasets = {name: load_dataset("json", data_files=path, split="train", num_proc=8) for name, path in target_list.items()}
     ds = []
-    ratios, target_list = get_dataset_pattern(dataset_pattern_name)
-
     # print(datasets)
     for name, dataset in datasets.items():
         rank_0_print(name, ratios[name])
@@ -165,9 +164,9 @@ def main():
         if ".gate." in name:
             weight.requires_grad_(True)
             n_router_weights += 1
-        #elif "lm_head" in name:
-        #    weight.requires_grad_(True)
-        #    n_head_weights += 1
+        elif "lm_head" in name:
+           weight.requires_grad_(True)
+           n_head_weights += 1
         else:
             weight.requires_grad_(False)
         n_weights += 1
@@ -224,7 +223,7 @@ def main():
         #    "backward_prefetch": "backward_pre",
         #    "limit_all_gathers": True
         #}),
-        #remove_unused_columns=False,
+        remove_unused_columns=False,
     )
     rank_0_print("parallel_mode: ", training_args.parallel_mode)
     rank_0_print("world_size", training_args.world_size)

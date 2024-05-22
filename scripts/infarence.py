@@ -90,7 +90,7 @@ def main():
     
     dataset = load_dataset("csv", data_files=args.prompt_file, split="train")
 
-    temperatures = [0.2, 0.5, 0.8]
+    temperatures = [0.1, 0.2, 0.3]
     for t in temperatures:
         print("temperature :", t)
         generationConfig = GenerationConfig(do_sample=True, repetition_penalty=1.1, temperature=t, max_new_tokens=30)
