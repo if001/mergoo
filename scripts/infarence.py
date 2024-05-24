@@ -88,9 +88,14 @@ def main():
         gen(model, tokenizer, generationConfig, args.prompt, name="dentaku")
         gen(tanuki_model, tokenizer, generationConfig, args.prompt, name="hatakeyama")
     
-    dataset = load_dataset("csv", data_files=args.prompt_file, split="train")
-
-    temperatures = [0.1, 0.2, 0.3]
+    if ".csv" in args.prompt_file:
+        dataset = load_dataset("csv", data_files=args.prompt_file, split="train")
+    elif ".jsonl" in args.prompt_file:
+        dataset = load_dataset("jsonl", data_files=args.prompt_file, split="train")
+    else:
+        print("dataset file is csv or jsonl")
+        exit(0)
+    temperatures = [0.1, 0.2]
     for t in temperatures:
         print("temperature :", t)
         generationConfig = GenerationConfig(do_sample=True, repetition_penalty=1.1, temperature=t, max_new_tokens=30)
