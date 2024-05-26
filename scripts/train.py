@@ -38,9 +38,11 @@ BATCH_SIZE=4
 # BATCH_SIZE=1024
 BATCH_SIZE=1
 # BATCH_SIZE=2
-LOGGING_STEPS=2
-SAVE_STEPS=100
+LOGGING_STEPS=10
+# SAVE_STEPS=100
+SAVE_STEPS=5000
 SAVE_STEPS=1000000
+# SAVE_STEPS=1555
 NUM_GPUS=int(os.environ['WORLD_SIZE'])
 LOCAL_RANK = int(os.environ['LOCAL_RANK'])
 
@@ -75,7 +77,9 @@ def parse_arguments():
     parser.add_argument("--load_8bit", action='store_true')
     parser.add_argument("--local_rank", type=int)
     parser.add_argument("--dataset_pattern_name", type=str)
-
+    parser.add_argument("--lr", type=float, default=6.0e-5)
+    parser.add_argument("--max_steps", type=int, default=-1)
+    parser.add_argument("--resume", action='store_true')
     args = parser.parse_args()
     print("args: ", args)
     return args
@@ -160,17 +164,25 @@ def main():
     ## freeze other than gate
     rank_0_print("before freeze: ", show_total_params(model))
     n_weights, n_router_weights, n_head_weights  = 0,0,0
+    #for name, weight in model.named_parameters():
+    #    rank_0_print(name, weight.size())
+    #    if ".gate." in name:
+    #        weight.requires_grad_(True)
+    #        n_router_weights += 1
+    #    elif "lm_head" in name:
+    #       weight.requires_grad_(True)
+    #       n_head_weights += 1
+    #    else:
+    #        weight.requires_grad_(False)
+    #    n_weights += 1
     for name, weight in model.named_parameters():
         rank_0_print(name, weight.size())
-        if ".gate." in name:
-            weight.requires_grad_(True)
-            n_router_weights += 1
-        elif "lm_head" in name:
-           weight.requires_grad_(True)
-           n_head_weights += 1
-        else:
+        if ".mlp." in name and ".base_layer." in name:
             weight.requires_grad_(False)
-        n_weights += 1
+        elif "lora" in name:
+           weight.requires_grad_(False)
+        else:
+            weight.requires_grad_(True)
     rank_0_print("n_router_weights", n_router_weights)
     rank_0_print("n_head_weights", n_head_weights)
     rank_0_print("n_weights", n_weights)
@@ -203,7 +215,7 @@ def main():
         logging_dir=args.output_dir,
         logging_steps=LOGGING_STEPS,
         logging_strategy="steps",
-        learning_rate=6.0e-5,
+        learning_rate=args.lr,
         # min_lr
         save_strategy="steps",
         save_total_limit=3,
@@ -225,6 +237,7 @@ def main():
         #    "limit_all_gathers": True
         #}),
         remove_unused_columns=False,
+        max_steps=args.max_steps
     )
     rank_0_print("parallel_mode: ", training_args.parallel_mode)
     rank_0_print("world_size", training_args.world_size)
@@ -251,11 +264,9 @@ def main():
         data_collator=data_collator,
         callbacks=[tokenCounter, computeThroughput]
     )
-    trainer.train()
-
+    trainer.train(resume_from_checkpoint=args.resume)
     for name, weight in model.named_parameters():
         rank_0_print(name, weight.size())
-
     if trainer.is_fsdp_enabled:
         trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
     trainer.save_model()
