@@ -82,12 +82,11 @@ def main():
     )
     tanuki_model.eval()
 
-    
-    if args.prompt:
+    if args.prompt is not None:
         generationConfig = GenerationConfig(do_sample=True, repetition_penalty=1.1, temperature=0.2, max_new_tokens=30)
         gen(model, tokenizer, generationConfig, args.prompt, name="dentaku")
-        gen(tanuki_model, tokenizer, generationConfig, args.prompt, name="hatakeyama")
-    
+        # gen(tanuki_model, tokenizer, generationConfig, args.prompt, name="hatakeyama")
+        exit(0) 
     if ".csv" in args.prompt_file:
         dataset = load_dataset("csv", data_files=args.prompt_file, split="train")
     elif ".jsonl" in args.prompt_file:

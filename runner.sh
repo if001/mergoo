@@ -9,15 +9,17 @@ run() {
     --dataset_pattern_name ${dataset_pattern_name} \
     --output_dir /storage6/aa_fujimoto/router/${dataset_pattern_name}
 
+    echo "start default eval"
     python  ${HOME}/mergoo/scripts/infarence.py \
     --tokenizer hatakeyama-llm-team/Tanuki_pretrained_stage6_step62160  \
     --repo_id /storage6/aa_fujimoto/router/${dataset_pattern_name} \
     --prompt_file ./default_eval.csv > ./eval/${dataset_pattern_name}_default_eval.txt
 
+    echo "start calc eval"
     python  ${HOME}/mergoo/scripts/infarence.py \
     --tokenizer hatakeyama-llm-team/Tanuki_pretrained_stage6_step62160  \
     --repo_id /storage6/aa_fujimoto/router/${dataset_pattern_name} \
     --prompt_file ./default_eval.csv > ./eval/${dataset_pattern_name}_calc_eval.txt
 }
 
-run "pattern4"
+run "pattern6"

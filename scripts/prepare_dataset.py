@@ -2,7 +2,7 @@ import torch
 import datasets
 import warnings
 
-from datasets import Dataset
+from datasets import Dataset, concatenate_datasets, load_dataset
 from datasets.arrow_writer import SchemaInferenceError
 from datasets.builder import DatasetGenerationError
 from trl.trainer.utils import ConstantLengthDataset
@@ -109,9 +109,12 @@ def _prepare_packed_dataloader(
                 yield from constant_length_iterator
 
             try:
+                import time
+                start = time.time()
                 packed_dataset = Dataset.from_generator(
-                    data_generator, gen_kwargs={"constant_length_iterator": constant_length_iterator}
+                        data_generator, num_proc=20, gen_kwargs={"constant_length_iterator": constant_length_iterator}
                 )
+                end = time.time()
             except (DatasetGenerationError, SchemaInferenceError) as exc:
                 raise ValueError(
                     "Error occurred while packing the dataset. "
@@ -122,3 +125,55 @@ def _prepare_packed_dataloader(
             raise ValueError(
                 "You need to pass a `dataset_text_field` or `formatting_func` argument to the SFTTrainer if you want to use the `ConstantLengthDataset`."
             )
+
+
+def prepare_dataset2(dataset, tokenizer):
+    max_tokens = 4096
+
+    tokenized_dataset = Dataset.from_dict({"input_ids": [], "labels": []})
+    trains = []
+    input_ids = []
+    labels = []
+    from tqdm import tqdm
+    for v in tqdm(dataset):
+        tokenized_text = tokenizer(v["text"], add_special_tokens=False)['input_ids']
+
+        remaining_space = max_tokens - len(input_ids)
+        # print(len(input_ids)) 
+        if len(input_ids) + len(tokenized_text) < max_tokens:
+            input_ids.extend([tokenizer.eos_token_id] + tokenized_text)
+        else:
+            ## len(input_ids) + len(tokenized_text) > max_tokens
+            remaining_space = max_tokens - len(input_ids)
+            input_ids.extend(tokenized_text[:remaining_space])
+            labels = input_ids[:]
+            tokenized_dataset = tokenized_dataset.add_item({'input_ids': input_ids, 'labels': labels})
+            input_ids = []
+            labels = []
+            remaining_tokens = tokenized_text[remaining_space:]
+            while True:
+                input_ids.extend(remaining_tokens[:max_tokens])
+                remaining_tokens = remaining_tokens[max_tokens:]
+                if len(remaining_tokens) == 0:
+                    break
+    return tokenized_dataset
+
+def main():
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained("hatakeyama-llm-team/Tanuki_pretrained_stage6_step62160")
+    # ds = load_dataset("json", data_files="/storage6/dataset/pretrain/gen_experet/dentaku/train_data_dentaku_2keta_only_add_1_3keta.jsonl", split="train")
+    ds = load_dataset("json", data_files="/storage6/dataset/pretrain/gen_experet/WIKI/raw/wikipedia_ja/merged_wikipedia_ja_16.0.jsonl", split="train")
+    n = int(len(ds)/1000)
+    ds = ds.select(range(n))
+    print(ds)
+    
+    ds2 = prepare_dataset(ds, tokenizer)
+    print(ds2)
+    exit(0)
+    for v in ds2:
+        print(v["input_ids"])
+        print(tokenizer.decode(v["input_ids"]))
+        print("--")
+
+if __name__ == "__main__":
+    main()
